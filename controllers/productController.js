@@ -1,17 +1,45 @@
-// controllers/productController.js
 const Product = require('../models/Product');
 
 const productController = {
   createProduct: async (req, res) => {
     try {
+      // Destructure the required fields from the request body
+      const {
+        dealUrl,
+        title,
+        salePrice,
+        listPrice,
+        description,
+        category,
+        store
+      } = req.body;
+
+      // Check if all required fields are present
+      if (!dealUrl || !title || !salePrice || !listPrice || !description || !category || !store) {
+        return res.status(400).json({ message: 'All fields are required' });
+      }
+
+      // Create a new product using the model schema
       const product = new Product({
-        ...req.body,
-        createdBy: req.user._id
+        dealUrl,
+        title,
+        salePrice,
+        listPrice,
+        description,
+        category,
+        store,
+        createdBy: req.user._id, // Associate the product with the logged-in user's ObjectId
+        createdByUsername: req.user.username // Store the username of the user who created the product
       });
+
+      // Save the product to the database
       await product.save();
+
+      // Respond with the newly created product
       res.status(201).json(product);
     } catch (error) {
-      res.status(500).json({ message: 'Error creating product' });
+      // Handle any errors that occur during the product creation process
+      res.status(500).json({ message: 'Error creating product', error: error.message });
     }
   },
 

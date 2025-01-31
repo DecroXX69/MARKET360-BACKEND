@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { createProduct, getProducts, toggleLikeDislike } = require('../controllers/productController');
+const { createProduct, getProducts, getProductById, toggleLikeDislike } = require('../controllers/productController');
 const auth = require('../middleware/auth');
 
-// Apply the auth middleware to createProduct route to ensure user is authenticated
+// Create and get products routes
 router.post('/', auth, createProduct);
 router.get('/', getProducts);
-
-// Use a generic route for both like and dislike
+router.get('/:id', getProductById);
 router.put('/:id/:action', auth, toggleLikeDislike);
 
 module.exports = router;

@@ -1,4 +1,3 @@
-// models/Product.js
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
@@ -37,14 +36,14 @@ const productSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  likeCount: {
-    type: Number,
-    default: 0
-  },
-  dislikeCount: {
-    type: Number,
-    default: 0
-  },
+  likes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  dislikes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   createdAt: {
     type: Date,
     default: Date.now

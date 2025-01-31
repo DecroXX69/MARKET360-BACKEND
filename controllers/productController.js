@@ -1,5 +1,5 @@
-
 const Product = require('../models/Product');
+const userActions = new Map();
 
 const productController = {
   createProduct: async (req, res) => {
@@ -41,48 +41,62 @@ const productController = {
   },
 
   // PUT method for toggling like or dislike
+  // { "userId:productId": "like" or "dislike" }
+
+
   toggleLikeDislike: async (req, res) => {
+    const { action } = req.params; // 'like' or 'dislike'
+    const userId = req.user._id.toString();
+    const productId = req.params.id;
+    const userKey = `${userId}:${productId}`;
+
     try {
-        const { productId } = req.params;
-        const { action } = req.body;
-        const userId = req.user._id;
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
 
-        console.log('Received rating request:', { productId, action, userId });
+      const previousAction = userActions.get(userKey);
 
-        const product = await Product.findById(productId);
-        if (!product) {
-            return res.status(404).json({ message: 'Product not found' });
+      if (action === 'like') {
+        if (previousAction === 'like') {
+          // If already liked, undo the like
+          product.likeCount -= 1;
+          userActions.delete(userKey);
+        } else {
+          // If previously disliked, remove dislike first
+          if (previousAction === 'dislike') {
+            product.dislikeCount -= 1;
+          }
+          product.likeCount += 1;
+          userActions.set(userKey, 'like');
         }
-
-        // Remove user from both arrays first
-        product.likes = product.likes.filter(id => id.toString() !== userId.toString());
-        product.dislikes = product.dislikes.filter(id => id.toString() !== userId.toString());
-
-        // Add user to the appropriate array based on action
-        if (action === 'like') {
-            product.likes.push(userId);
-        } else if (action === 'dislike') {
-            product.dislikes.push(userId);
+      } else if (action === 'dislike') {
+        if (previousAction === 'dislike') {
+          // If already disliked, undo the dislike
+          product.dislikeCount -= 1;
+          userActions.delete(userKey);
+        } else {
+          // If previously liked, remove like first
+          if (previousAction === 'like') {
+            product.likeCount -= 1;
+          }
+          product.dislikeCount += 1;
+          userActions.set(userKey, 'dislike');
         }
+      } else {
+        return res.status(400).json({ message: "Invalid action. Use 'like' or 'dislike'." });
+      }
 
-        await product.save();
-
-        console.log('Updated product:', product);
-
-        res.json({
-            likes: product.likes.length,
-            dislikes: product.dislikes.length,
-            userLiked: product.likes.includes(userId),
-            userDisliked: product.dislikes.includes(userId)
-        });
+      await product.save();
+      res.json(product);
     } catch (error) {
-        console.error('Error in toggleLikeDislike:', error);
-        res.status(500).json({ message: 'Error updating rating', error: error.message });
+      console.error(error);
+      res.status(500).json({ message: 'Error updating like/dislike status', error: error.message });
     }
-}
+  }
+
 };
-
-
 
 module.exports = productController;
 

@@ -34,15 +34,20 @@ const productController = {
       const products = await Product.find()
         .populate('createdBy', 'username')
         .sort({ createdAt: -1 });
+
+        // Add likeCount and dislikeCount to each product if not present
+      const productsWithCounts = products.map(product => ({
+        ...product.toObject(),
+        likeCount: product.likeCount || 0,
+        dislikeCount: product.dislikeCount || 0
+      }));
+
+      res.json(productsWithCounts);
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: 'Error fetching products' });
     }
   },
-
-  // PUT method for toggling like or dislike
-  // { "userId:productId": "like" or "dislike" }
-
 
   toggleLikeDislike: async (req, res) => {
     const { action } = req.params; // 'like' or 'dislike'

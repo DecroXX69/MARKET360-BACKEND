@@ -1,16 +1,54 @@
 const Product = require('../models/Product');
-const userActions = new Map();
+const cloudinary = require('cloudinary').v2;
+const { uploadImage } = require('./cloudinary');
+const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: CLOUDINARY_CLOUD_NAME,
+  api_key: CLOUDINARY_API_KEY,
+  api_secret: CLOUDINARY_API_SECRET,
+});
 
 const productController = {
-  createProduct: async (req, res) => {
+  // Create a new product with image upload
+  // createProduct: async (req, res) => {
+  //   try {
+  //     const {
+  //       dealUrl, title, salePrice, listPrice, description, category, store
+  //     } = req.body;
+
+  //     const productData = {
+  //       dealUrl,
+  //       title,
+  //       salePrice,
+  //       listPrice,
+  //       description,
+  //       category,
+  //       store,
+  //       createdBy: req.user._id,
+  //     };
+
+  //     // Handle image uploads
+  //     const images = req.files?.length > 0 ? await Promise.all(req.files.map(uploadImage)) : [];
+  //     productData.images = images;
+
+  //     const product = new Product(productData);
+  //     await product.save();
+
+  //     res.status(201).json(product);
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Error creating product', error: error.message });
+  //   }
+  // },
+
+createProduct : async (req, res) => {
     try {
-      const { dealUrl, title, salePrice, listPrice, description, category, store } = req.body;
-
-      if (!dealUrl || !title || !salePrice || !listPrice || !description || !category || !store) {
-        return res.status(400).json({ message: 'All fields are required' });
-      }
-
-      const product = new Product({
+      const {
+        dealUrl, title, salePrice, listPrice, description, category, store
+      } = req.body;
+  
+      const productData = {
         dealUrl,
         title,
         salePrice,
@@ -19,119 +57,179 @@ const productController = {
         category,
         store,
         createdBy: req.user._id,
-      });
-
+        images: [],
+      };
+  
+      // Handle image uploads
+      if (req.files && req.files.length > 0) {
+        const images = await Promise.all(req.files.map(file => uploadImage(file)));  // Upload each image
+        productData.images = images;  // Store image URLs and public IDs
+      }
+  
+      const product = new Product(productData);
       await product.save();
-
+  
       res.status(201).json(product);
     } catch (error) {
-      res.status(500).json({ message: 'Error creating product', error: error.message });
+      res.status(500).json({
+        message: 'Error creating product',
+        error: error.message,
+      });
     }
   },
-
-
+  // Get all products with filtering
   getProducts: async (req, res) => {
     try {
-      const { min, max, categories } = req.query;
+      const { min, max, categories, search } = req.query;
       const query = {};
 
-      if (min !== undefined && max !== undefined) {
+      if (min && max) {
         query.salePrice = { $gte: parseFloat(min), $lte: parseFloat(max) };
       }
 
       if (categories) {
         const categoryList = Array.isArray(categories) ? categories : categories.split(',');
-        if (categoryList.length > 0) {
-          query.category = { $in: categoryList };
-        }
+        query.category = { $in: categoryList };
+      }
+
+      if (search) {
+        query.$text = { $search: search };
       }
 
       const products = await Product.find(query)
         .populate('createdBy', 'username')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
 
-        // Add likeCount and dislikeCount to each product if not present
-      const productsWithCounts = products.map(product => ({
-        ...product.toObject(),
-        likeCount: product.likeCount || 0,
-        dislikeCount: product.dislikeCount || 0
-      }));
-
-      res.json(productsWithCounts);
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: 'Error fetching products' });
     }
   },
 
-
-  getProductById : async (req, res) => {
+  // Get a single product by ID
+  getProductById: async (req, res) => {
     try {
-      const product = await Product.findById(req.params.id).populate('createdBy', 'username');
+      const product = await Product.findById(req.params.id)
+        .populate('createdBy', 'username')
+        .lean();
+      
       if (!product) return res.status(404).json({ message: 'Product not found' });
+
       res.json(product);
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
   },
 
-  // PUT method for toggling like or dislike
-  // { "userId:productId": "like" or "dislike" }
-
-
+  // Toggle product like/dislike
   toggleLikeDislike: async (req, res) => {
-    const { action } = req.params; // 'like' or 'dislike'
-    const userId = req.user._id.toString();
-    const productId = req.params.id;
-    const userKey = `${userId}:${productId}`;
-
     try {
+      const userId = req.user._id.toString();
+      const productId = req.params.id;
+      const userKey = `${userId}:${productId}`;
+      const action = req.params.action;
+
       const product = await Product.findById(productId);
+
       if (!product) {
         return res.status(404).json({ message: 'Product not found' });
       }
 
-      const previousAction = userActions.get(userKey);
-
       if (action === 'like') {
-        if (previousAction === 'like') {
-          // If already liked, undo the like
-          product.likeCount -= 1;
-          userActions.delete(userKey);
-        } else {
-          // If previously disliked, remove dislike first
-          if (previousAction === 'dislike') {
-            product.dislikeCount -= 1;
-          }
-          product.likeCount += 1;
-          userActions.set(userKey, 'like');
+        if (!product.likes.includes(userId)) {
+          product.likes.push(userId);
         }
+        product.dislikes = product.dislikes.filter(id => id !== userId);
       } else if (action === 'dislike') {
-        if (previousAction === 'dislike') {
-          // If already disliked, undo the dislike
-          product.dislikeCount -= 1;
-          userActions.delete(userKey);
-        } else {
-          // If previously liked, remove like first
-          if (previousAction === 'like') {
-            product.likeCount -= 1;
-          }
-          product.dislikeCount += 1;
-          userActions.set(userKey, 'dislike');
+        if (!product.dislikes.includes(userId)) {
+          product.dislikes.push(userId);
         }
-      } else {
-        return res.status(400).json({ message: "Invalid action. Use 'like' or 'dislike'." });
+        product.likes = product.likes.filter(id => id !== userId);
       }
+
+      product.likeCount = product.likes.length;
+      product.dislikeCount = product.dislikes.length;
 
       await product.save();
       res.json(product);
     } catch (error) {
-      console.error(error);
       res.status(500).json({ message: 'Error updating like/dislike status', error: error.message });
     }
-  }
+  },
 
+  // Update product information
+  updateProduct: async (req, res) => {
+    try {
+      const allowedUpdates = ['dealUrl', 'title', 'salePrice', 'listPrice', 'description', 'category', 'store'];
+      const product = await Product.findById(req.params.id);
+
+      if (!product) return res.status(404).json({ message: 'Product not found' });
+
+      if (product.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'You are not authorized to edit this product' });
+      }
+
+      const productUpdates = {};
+      for (const key of allowedUpdates) {
+        if (req.body[key] !== undefined) {
+          productUpdates[key] = req.body[key];
+        }
+      }
+
+      // Handle image updates
+      if (req.files && req.files.length > 0) {
+        // Remove existing images
+        if (product.images.length > 0) {
+          await Promise.all(product.images.map(async (image) => {
+            try {
+              await cloudinary.uploader.destroy(image.public_id);
+            } catch (err) {
+              console.error('Error deleting image:', err);
+            }
+          }));
+        }
+
+        productUpdates.images = await Promise.all(req.files.map(uploadImage));
+      }
+
+      Object.assign(product, productUpdates);
+      await product.save();
+
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: 'Error updating product', error: error.message });
+    }
+  },
+
+  // Delete product
+  deleteProduct: async (req, res) => {
+    try {
+      const product = await Product.findById(req.params.id);
+
+      if (!product) return res.status(404).json({ message: 'Product not found' });
+
+      if (product.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'You are not authorized to delete this product' });
+      }
+
+      // Delete uploaded images
+      if (product.images.length > 0) {
+        await Promise.all(product.images.map(async (image) => {
+          try {
+            await cloudinary.uploader.destroy(image.public_id);
+          } catch (err) {
+            console.error('Error deleting image:', err);
+          }
+        }));
+      }
+
+      await product.deleteOne();
+      res.json({ message: 'Product deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Error deleting product', error: error.message });
+    }
+  },
 };
 
 module.exports = productController;
-

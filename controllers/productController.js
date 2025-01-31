@@ -29,9 +29,24 @@ const productController = {
     }
   },
 
+
   getProducts: async (req, res) => {
     try {
-      const products = await Product.find()
+      const { min, max, categories } = req.query;
+      const query = {};
+
+      if (min !== undefined && max !== undefined) {
+        query.salePrice = { $gte: parseFloat(min), $lte: parseFloat(max) };
+      }
+
+      if (categories) {
+        const categoryList = Array.isArray(categories) ? categories : categories.split(',');
+        if (categoryList.length > 0) {
+          query.category = { $in: categoryList };
+        }
+      }
+
+      const products = await Product.find(query)
         .populate('createdBy', 'username')
         .sort({ createdAt: -1 });
 
@@ -48,6 +63,7 @@ const productController = {
       res.status(500).json({ message: 'Error fetching products' });
     }
   },
+
 
   getProductById : async (req, res) => {
     try {

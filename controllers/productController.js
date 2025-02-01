@@ -42,41 +42,52 @@ const productController = {
   //   }
   // },
 
-createProduct : async (req, res) => {
+  createProduct: async (req, res) => {
     try {
-      const {
-        dealUrl, title, salePrice, listPrice, description, category, store
-      } = req.body;
-  
-      const productData = {
-        dealUrl,
-        title,
-        salePrice,
-        listPrice,
-        description,
-        category,
-        store,
-        createdBy: req.user._id,
-        images: [],
-      };
-  
-      // Handle image uploads
-      if (req.files && req.files.length > 0) {
-        const images = await Promise.all(req.files.map(file => uploadImage(file)));  // Upload each image
-        productData.images = images;  // Store image URLs and public IDs
-      }
-  
-      const product = new Product(productData);
-      await product.save();
-  
-      res.status(201).json(product);
+        console.log(req.files);  // Log files received from Multer
+        console.log(req.body);   // Log the rest of the form data
+
+        const { dealUrl, title, salePrice, listPrice, description, category, store } = req.body;
+        const images = req.files;
+
+        const productData = {
+            dealUrl,
+            title,
+            salePrice,
+            listPrice,
+            description,
+            category,
+            store,
+            createdBy: req.user._id,  // Assuming you have user info in the request
+            images: [],
+        };
+
+        // Handle image uploads if any images were received
+        if (images && images.length > 0) {
+            // Upload each image and retrieve its URL and public ID
+            const uploadedImages = await Promise.all(images.map(file => uploadImage(file)));  
+            
+            // Assuming uploadImage returns an object with the image URL and public ID
+            productData.images = uploadedImages.map(image => ({
+                url: image.url,         // URL of the uploaded image
+                public_id: image.public_id,  // Public ID for the image (if using a service like Cloudinary)
+            }));
+        }
+
+        // Create and save the product to the database
+        const product = new Product(productData);
+        await product.save();
+
+        res.status(201).json(product);  // Respond with the newly created product
     } catch (error) {
-      res.status(500).json({
-        message: 'Error creating product',
-        error: error.message,
-      });
+        console.error(error);  // Log any error
+        res.status(500).json({
+            message: 'Error creating product',
+            error: error.message,
+        });
     }
-  },
+},
+
   // Get all products with filtering
   getProducts: async (req, res) => {
     try {

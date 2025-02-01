@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
   avatar: {
     type: String,
     default: 'default-avatar.png'

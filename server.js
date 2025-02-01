@@ -16,9 +16,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Import the authentication middleware
+const auth = require('./middleware/auth'); 
+
 // Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/products', require('./routes/productRoutes'));
+app.use('/api/auth', require('./routes/authRoutes')); // Authentication routes (e.g., login, register)
+app.use('/api/products', require('./routes/productRoutes')); // Product-related routes
+app.use('/api/wishlist', auth, require('./routes/wishlistRoutes'));  // Wishlist routes, protected by auth middleware
+
 
 const PORT = process.env.PORT || 5000;
 

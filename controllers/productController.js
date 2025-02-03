@@ -2,6 +2,7 @@ const Product = require('../models/Product');
 const cloudinary = require('cloudinary').v2;
 const { uploadImage } = require('./cloudinary');
 const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+const userActions = new Map();
 
 // Configure Cloudinary
 cloudinary.config({
@@ -134,37 +135,89 @@ const productController = {
   },
 
   // Toggle product like/dislike
+  // toggleLikeDislike: async (req, res) => {
+  //   try {
+  //     const userId = req.user._id.toString();
+  //     const productId = req.params.id;
+  //     const userKey = `${userId}:${productId}`;
+  //     const action = req.params.action;
+
+  //     const product = await Product.findById(productId);
+
+  //     if (!product) {
+  //       return res.status(404).json({ message: 'Product not found' });
+  //     }
+
+  //     if (action === 'like') {
+  //       if (!product.likes.includes(userId)) {
+  //         product.likes.push(userId);
+  //       }
+  //       product.dislikes = product.dislikes.filter(id => id !== userId);
+  //     } else if (action === 'dislike') {
+  //       if (!product.dislikes.includes(userId)) {
+  //         product.dislikes.push(userId);
+  //       }
+  //       product.likes = product.likes.filter(id => id !== userId);
+  //     }
+
+  //     product.likeCount = product.likes.length;
+  //     product.dislikeCount = product.dislikes.length;
+
+  //     await product.save();
+  //     res.json(product);
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Error updating like/dislike status', error: error.message });
+  //   }
+  // },
+
   toggleLikeDislike: async (req, res) => {
+    const { action } = req.params; // 'like' or 'dislike'
+    const userId = req.user._id.toString();
+    const productId = req.params.id;
+    const userKey = `${userId}:${productId}`;
+
     try {
-      const userId = req.user._id.toString();
-      const productId = req.params.id;
-      const userKey = `${userId}:${productId}`;
-      const action = req.params.action;
-
       const product = await Product.findById(productId);
-
       if (!product) {
         return res.status(404).json({ message: 'Product not found' });
       }
 
-      if (action === 'like') {
-        if (!product.likes.includes(userId)) {
-          product.likes.push(userId);
-        }
-        product.dislikes = product.dislikes.filter(id => id !== userId);
-      } else if (action === 'dislike') {
-        if (!product.dislikes.includes(userId)) {
-          product.dislikes.push(userId);
-        }
-        product.likes = product.likes.filter(id => id !== userId);
-      }
+      const previousAction = userActions.get(userKey);
 
-      product.likeCount = product.likes.length;
-      product.dislikeCount = product.dislikes.length;
+      if (action === 'like') {
+        if (previousAction === 'like') {
+          // If already liked, undo the like
+          product.likeCount -= 1;
+          userActions.delete(userKey);
+        } else {
+          // If previously disliked, remove dislike first
+          if (previousAction === 'dislike') {
+            product.dislikeCount -= 1;
+          }
+          product.likeCount += 1;
+          userActions.set(userKey, 'like');
+        }
+      } else if (action === 'dislike') {
+        if (previousAction === 'dislike') {
+          // If already disliked, undo the dislike
+          product.dislikeCount -= 1;
+          userActions.delete(userKey);
+        } else {
+          // If previously liked, remove like first
+          if (previousAction === 'like') {
+            product.likeCount -= 1;
+          }
+          product.dislikeCount += 1;
+          userActions.set(userKey, 'dislike');
+        }
+      } else {
+        return res.status(400).json({ message: "Invalid action. Use 'like' or 'dislike'." });
+      }
 
       await product.save();
       res.json(product);
     } catch (error) {
+      console.error(error);
       res.status(500).json({ message: 'Error updating like/dislike status', error: error.message });
     }
   },

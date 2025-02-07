@@ -32,37 +32,49 @@ const productController = {
 
   getProducts: async (req, res) => {
     try {
-      const { min, max, categories } = req.query;
-      const query = {};
+        console.log('Received Query Params:', req.query);
 
-      if (min !== undefined && max !== undefined) {
-        query.salePrice = { $gte: parseFloat(min), $lte: parseFloat(max) };
-      }
+        const { min, max, categories } = req.query;
+        const query = {};
 
-      if (categories) {
-        const categoryList = Array.isArray(categories) ? categories : categories.split(',');
-        if (categoryList.length > 0) {
-          query.category = { $in: categoryList };
+        // Price filtering
+        if (min !== undefined || max !== undefined) {
+            query.salePrice = {};
+            if (min !== undefined) query.salePrice.$gte = parseFloat(min);
+            if (max !== undefined) query.salePrice.$lte = parseFloat(max);
         }
-      }
 
-      const products = await Product.find(query)
-        .populate('createdBy', 'username')
-        .sort({ createdAt: -1 });
+        // Category filtering
+        if (categories) {
+            const categoryList = Array.isArray(categories) 
+                ? categories 
+                : [categories];
+            query.category = { $in: categoryList };
+        }
 
-        // Add likeCount and dislikeCount to each product if not present
-      const productsWithCounts = products.map(product => ({
-        ...product.toObject(),
-        likeCount: product.likeCount || 0,
-        dislikeCount: product.dislikeCount || 0
-      }));
+        console.log('Final MongoDB Query:', query);
 
-      res.json(productsWithCounts);
-      res.json(products);
+        const products = await Product.find(query)
+            .populate('createdBy', 'username')
+            .sort({ createdAt: -1 });
+
+        console.log('Found Products:', products.length);
+
+        const productsWithCounts = products.map(product => ({
+            ...product.toObject(),
+            likeCount: product.likeCount || 0,
+            dislikeCount: product.dislikeCount || 0
+        }));
+
+        res.json(productsWithCounts);
     } catch (error) {
-      res.status(500).json({ message: 'Error fetching products' });
+        console.error('Error Details:', error);
+        res.status(500).json({ 
+            message: 'Error fetching products', 
+            error: error.message 
+        });
     }
-  },
+},
 
 
   getProductById : async (req, res) => {

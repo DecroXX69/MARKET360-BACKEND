@@ -19,6 +19,13 @@ const productSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  images: [
+    {
+      url: { type: String, required: true },
+      public_id: { type: String, required: true }
+    }
+  ],  // This is changed to an array of image objects
+
   description: {
     type: String,
     required: true

@@ -6,7 +6,7 @@ const wishlistController = require('../controllers/wishlistController');
 router.get('/', wishlistController.getWishlist);
 
 // Add to Wishlist
-router.post('/', wishlistController.addToWishlist);
+router.post('/add', wishlistController.addToWishlist);
 
 // Remove from Wishlist
 router.delete('/:productId', wishlistController.removeFromWishlist);

@@ -89,14 +89,46 @@ const productController = {
     }
 },
 
+getProducts: async (req, res) => {
+  try {
+    const { min, max, categories, search } = req.query;
+    const query = {};
+
+    if (min && max) {
+      query.salePrice = { $gte: parseFloat(min), $lte: parseFloat(max) };
+    }
+
+    if (categories) {
+      const categoryList = Array.isArray(categories) ? categories : categories.split(',');
+      query.category = { $in: categoryList };
+    }
+
+    if (search) {
+      query.$text = { $search: search };asca
+    }
+
+    const products = await Product.find(query)
+      .populate('createdBy', 'username')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching products' });
+  }
+},
+
+
   // Get all products with filtering
-  getProducts: async (req, res) => {
+  getProductsApproved: async (req, res) => {
     try {
         console.log('Received Query Params:', req.query);
 
         const { min, max, categories } = req.query;
         const query = {};
-
+        if (!req.user?.isAdmin) {
+          query.status = 'approved';
+        }
         // Price filtering
         if (min !== undefined || max !== undefined) {
             query.salePrice = {};
@@ -247,7 +279,7 @@ const productController = {
 
       if (!product) return res.status(404).json({ message: 'Product not found' });
 
-      if (product.createdBy.toString() !== req.user._id.toString()) {
+      if (!req.user.isAdmin && product.createdBy.toString() !== req.user._id.toString()) {
         return res.status(403).json({ message: 'You are not authorized to edit this product' });
       }
 

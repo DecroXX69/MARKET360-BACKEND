@@ -9,7 +9,28 @@ dotenv.config();
 
 // Connect to database
 connectDB();
+async function initializeAdminUser() {
+  try {
+    const adminEmail = 'admin@example.com';
+    const adminPassword = 'adminpassword';
 
+    const existingAdmin = await User.findOne({ email: adminEmail });
+    if (!existingAdmin) {
+      const adminUser = new User({
+        email: adminEmail,
+        username: 'admin',
+        password: adminPassword,
+        isAdmin: true
+      });
+      await adminUser.save();
+      console.log('Admin user created successfully');
+    } else {
+      console.log('Admin user already exists');
+    }
+  } catch (error) {
+    console.error('Error initializing admin user:', error);
+  }
+}
 const app = express();
 
 // Middleware
@@ -21,12 +42,12 @@ app.use(cors({
 app.use(express.json());
 
 // Import the authentication middleware
-const auth = require('./middleware/auth'); 
+const { auth } = require('./middleware/auth');
 
 // Routes
-app.use('/api/auth', require('./routes/authRoutes')); // Authentication routes (e.g., login, register)
-app.use('/api/products', require('./routes/productRoutes')); // Product-related routes
-app.use('/api/wishlist', auth, require('./routes/wishlistRoutes'));  // Wishlist routes, protected by auth middleware
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/products', require('./routes/productRoutes'));
+app.use('/api/wishlist', auth, require('./routes/wishlistRoutes'));
 
 
 const PORT = process.env.PORT || 5000;

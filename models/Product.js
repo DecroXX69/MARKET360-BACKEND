@@ -1,6 +1,14 @@
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
+
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+    required: true
+  },
+  
   dealUrl: {
     type: String,
     required: true,

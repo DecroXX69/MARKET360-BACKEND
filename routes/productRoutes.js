@@ -21,7 +21,7 @@
 const multer = require('multer');
 const express = require('express');
 const router = express.Router();
-const { createProduct, getProductsApproved,getProducts,  getProductById, updateProductStatus, deleteProduct, toggleLikeDislike } = require('../controllers/productController');
+const { createProduct, getProductsApproved, getProducts,  getProductById, updateProductStatus, deleteProduct, toggleLikeDislike } = require('../controllers/productController');
 const { auth} = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 // Multer configuration for handling image uploads (storage in memory)
@@ -31,7 +31,7 @@ const upload = multer({ storage: storage }).array('images');  // The field name 
 
 // Define routes
 router.post('/', auth, upload, createProduct);  // Add upload as middleware here
-router.get('/', getProducts);
+router.get('/pending', getProducts);
 router.get('/approved', getProductsApproved);
 router.get('/:id', getProductById);
 router.put('/:id/:action', auth, toggleLikeDislike);

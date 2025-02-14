@@ -91,11 +91,14 @@ const productController = {
 
 getProducts: async (req, res) => {
   try {
-    const { min, max, categories, search } = req.query;
-      const query = {};
-        if (!req.user?.isAdmin) {
-          query.status = 'pending';
-        }
+    const { min, max, categories, search, status } = req.query;
+    const query = {};
+
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = 'pending'; // Default to pending if not provided
+    }
 
     if (min && max) {
       query.salePrice = { $gte: parseFloat(min), $lte: parseFloat(max) };
@@ -107,7 +110,7 @@ getProducts: async (req, res) => {
     }
 
     if (search) {
-      query.$text = { $search: search };asca
+      query.$text = { $search: search };
     }
 
     const products = await Product.find(query)
@@ -120,7 +123,6 @@ getProducts: async (req, res) => {
     res.status(500).json({ message: 'Error fetching products' });
   }
 },
-
 
   // Get all products with filtering
   getProductsApproved: async (req, res) => {
@@ -346,10 +348,10 @@ getProducts: async (req, res) => {
       const product = await Product.findById(req.params.id);
 
       if (!product) return res.status(404).json({ message: 'Product not found' });
-
-      if (product.createdBy.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: 'You are not authorized to delete this product' });
-      }
+      //commented the below code because only users who created this can delete
+      // if (product.createdBy.toString() !== req.user._id.toString()) {
+      //   return res.status(403).json({ message: 'You are not authorized to delete this product' });
+      // }
 
       // Delete uploaded images
       if (product.images.length > 0) {

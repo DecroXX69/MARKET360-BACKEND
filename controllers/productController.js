@@ -183,41 +183,63 @@ getProducts: async (req, res) => {
     }
   },
 
-  // Toggle product like/dislike
-  // toggleLikeDislike: async (req, res) => {
-  //   try {
-  //     const userId = req.user._id.toString();
-  //     const productId = req.params.id;
-  //     const userKey = `${userId}:${productId}`;
-  //     const action = req.params.action;
+  updateProductStatus : async (req, res) => {
+    const { id, action } = req.params;
+  
+    try {
+      // Validate action
+      if (action !== 'approved' && action !== 'rejected') {
+        return res.status(400).json({ message: 'Invalid action. Status must be "approved" or "rejected".' });
+      }
+  
+      // Find the product by ID
+      const product = await Product.findById(id);
+  
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found.' });
+      }
+  
+      // Update the status
+      product.status = action;
+  
+      // If status is rejected, delete the product
+      if (product.status === 'rejected') {
+        await product.deleteOne({ _id: id });
+        return res.status(200).json({ message: 'Product has been rejected and deleted successfully.' });
+      }
+  
+      // Save updated product
+      await product.save();
+  
+      res.status(200).json({ message: 'Product status updated successfully.', product });
+  
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      res.status(500).json({ message: 'Error updating product status.', error: error.message });
+    }
+  },
 
-  //     const product = await Product.findById(productId);
-
-  //     if (!product) {
-  //       return res.status(404).json({ message: 'Product not found' });
-  //     }
-
-  //     if (action === 'like') {
-  //       if (!product.likes.includes(userId)) {
-  //         product.likes.push(userId);
-  //       }
-  //       product.dislikes = product.dislikes.filter(id => id !== userId);
-  //     } else if (action === 'dislike') {
-  //       if (!product.dislikes.includes(userId)) {
-  //         product.dislikes.push(userId);
-  //       }
-  //       product.likes = product.likes.filter(id => id !== userId);
-  //     }
-
-  //     product.likeCount = product.likes.length;
-  //     product.dislikeCount = product.dislikes.length;
-
-  //     await product.save();
-  //     res.json(product);
-  //   } catch (error) {
-  //     res.status(500).json({ message: 'Error updating like/dislike status', error: error.message });
-  //   }
-  // },
+  deleteProduct : async (req, res) => {
+    try {
+      const product = await Product.findById(req.params.id);
+  
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found.' });
+      }
+  
+      // Check if the status is 'rejected' before deletion
+      if (product.status === 'rejected') {
+        await product.remove();
+        return res.status(200).json({ message: 'Product deleted successfully.' });
+      } else {
+        return res.status(400).json({ message: 'Product status is not "rejected". Deletion is not allowed.' });
+      }
+  
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      res.status(500).json({ message: 'Error deleting product.', error: error.message });
+    }
+  },
 
   toggleLikeDislike: async (req, res) => {
     const { action } = req.params; // 'like' or 'dislike'

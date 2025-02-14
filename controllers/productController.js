@@ -92,7 +92,10 @@ const productController = {
 getProducts: async (req, res) => {
   try {
     const { min, max, categories, search } = req.query;
-    const query = {};
+      const query = {};
+        if (!req.user?.isAdmin) {
+          query.status = 'pending';
+        }
 
     if (min && max) {
       query.salePrice = { $gte: parseFloat(min), $lte: parseFloat(max) };

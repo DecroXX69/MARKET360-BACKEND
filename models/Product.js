@@ -62,6 +62,10 @@ const productSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  viewCount: {  // Added this field
+    type: Number,
+    default: 0
   }
 });
 

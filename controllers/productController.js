@@ -342,6 +342,28 @@ getProducts: async (req, res) => {
     }
   },
 
+
+  incrementViews: async (req, res) => {
+    console.log('Increment Views Called for Product:', req.params.id);
+    console.log('Product Model:', Product); // Ensure Product is defined
+  
+    try {
+      const productId = req.params.id;
+      const product = await Product.findByIdAndUpdate(
+        productId,
+        { $inc: { viewCount: 1 } },
+        { new: true }
+      );
+  
+      if (!product) return res.status(404).json({ message: 'Product not found' });
+  
+      res.json(product);
+    } catch (error) {
+      console.error('Error incrementing view count:', error);
+      res.status(500).json({ message: 'Error incrementing view count', error: error.message });
+    }
+  },
+
   // Delete product
   deleteProduct: async (req, res) => {
     try {
@@ -371,5 +393,7 @@ getProducts: async (req, res) => {
     }
   },
 };
+
+
 
 module.exports = productController;

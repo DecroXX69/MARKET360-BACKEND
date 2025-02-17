@@ -124,6 +124,8 @@ getProducts: async (req, res) => {
   }
 },
 
+// productController.js
+
   // Get all products with filtering
   getProductsApproved: async (req, res) => {
     try {
@@ -140,7 +142,9 @@ getProducts: async (req, res) => {
             if (min !== undefined) query.salePrice.$gte = parseFloat(min);
             if (max !== undefined) query.salePrice.$lte = parseFloat(max);
         }
-
+        if (req.query.createdBy) {
+          query.createdBy = mongoose.Types.ObjectId(req.query.createdBy);
+          }
         // Category filtering
         if (categories) {
             const categoryList = Array.isArray(categories) 
@@ -172,6 +176,71 @@ getProducts: async (req, res) => {
         });
     }
 },
+
+getProductsByUser : async (req, res) => {
+  try {
+    const { createdBy } = req.params;  // Get createdBy from route params
+    const { min, max, categories, status, search } = req.query;
+
+    if (!createdBy) {
+      return res.status(400).json({ message: 'createdBy is required' });
+    }
+
+    const query = {
+      status: 'approved',
+      createdBy: createdBy,  // Filter by createdBy ID
+    };
+
+    // Price filtering
+    if (min !== undefined || max !== undefined) {
+      query.salePrice = {};
+      if (min !== undefined) query.salePrice.$gte = parseFloat(min);
+      if (max !== undefined) query.salePrice.$lte = parseFloat(max);
+    }
+
+    // Category filtering
+    if (categories) {
+      const categoryList = Array.isArray(categories) 
+        ? categories 
+        : [categories];
+      query.category = { $in: categoryList };
+    }
+
+    // Status filtering (if needed)
+    if (status) {
+      query.status = status;
+    }
+
+    // Search filtering (if needed)
+    if (search) {
+      query.title = { $regex: search, $options: 'i' };  // Case-insensitive search
+    }
+
+    console.log('Final MongoDB Query:', query);
+
+    // Fetch the products based on the createdBy ID and other filters
+    const products = await Product.find(query)
+      .populate('createdBy', 'username')  // Populate the username of the creator
+      .sort({ createdAt: -1 });
+
+    console.log('Found Products:', products.length);
+
+    const productsWithCounts = products.map(product => ({
+      ...product.toObject(),
+      likeCount: product.likeCount || 0,
+      dislikeCount: product.dislikeCount || 0
+    }));
+
+    res.json(productsWithCounts);
+  } catch (error) {
+    console.error('Error Details:', error);
+    res.status(500).json({
+      message: 'Error fetching products',
+      error: error.message
+    });
+  }
+},
+
 
   // Get a single product by ID
   getProductById: async (req, res) => {
@@ -301,14 +370,14 @@ getProducts: async (req, res) => {
   // Update product information
   updateProduct: async (req, res) => {
     try {
-      const allowedUpdates = ['dealUrl', 'title', 'salePrice', 'listPrice', 'description', 'category', 'store'];
+      const allowedUpdates = ['dealUrl', 'title', 'salePrice', 'listPrice', 'description', 'category', 'store', 'images'];
       const product = await Product.findById(req.params.id);
 
       if (!product) return res.status(404).json({ message: 'Product not found' });
 
-      if (!req.user.isAdmin && product.createdBy.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: 'You are not authorized to edit this product' });
-      }
+      // if (!req.user.isAdmin && product.createdBy.toString() !== req.user._id.toString()) {
+      //   return res.status(403).json({ message: 'You are not authorized to edit this product' });
+      // }
 
       const productUpdates = {};
       for (const key of allowedUpdates) {
